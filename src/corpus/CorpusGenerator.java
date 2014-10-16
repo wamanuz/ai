@@ -1,3 +1,5 @@
+package corpus;
+
 import java.lang.StringBuilder; 
 
 import java.util.Arrays; 
@@ -115,17 +117,6 @@ public class CorpusGenerator {
 
 // Rough outline. Feel free to move stuff around and change it. 
 // Everything should be moved to separate files and maybe packages, e.g. .search, .extractions, and .misc?
-class Link {
-    String url; 
-    String summary; 
-    // Maybe save the keywords here instead? 
-}
-
-abstract class ExtractionAlgorithm {
-    public String extract(Link l, String[] keywords) {
-        return ""; 
-    }
-}
 
 abstract class SearchAlgorithm {
     public SearchAlgorithm() {
