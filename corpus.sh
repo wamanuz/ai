@@ -1,2 +1,2 @@
 #!/bin/sh
-java -classpath src/corpus/ CorpusGenerator $*
+java -cp "dep/*:src/" corpus/CorpusGenerator $*
