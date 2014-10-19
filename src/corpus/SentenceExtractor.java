@@ -1,54 +1,54 @@
 package corpus;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import de.l3s.boilerpipe.BoilerpipeProcessingException;
+import de.l3s.boilerpipe.extractors.DefaultExtractor;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SentenceExtractor extends ExtractionAlgorithm {
 
 	@Override
 	public String extract(Link l, String[] keywords) throws ExtractionException {
 		URL url;
-		String extractedSentences = "";
 		try {
-			// get URL content
-			url = new URL(l.getURL());
-			URLConnection conn = url.openConnection();
+			// Create the URL
+			url = new URL(l.url);
  
-			// open the stream and put it into BufferedReader
-			BufferedReader br = new BufferedReader(
-                               new InputStreamReader(conn.getInputStream()));
- 
-			String inputLine;
-			// Build the keywords for the regex
-			String keyword = "";
-			for (int i = 0; i < keywords.length; i++) {
-				if (i != keywords.length - 1)
-					keyword += keywords[i] + '|';
-				else
-					keyword += keywords[i];
-			}
-			Pattern p = Pattern.compile("[A-Z](?i)[^.?!]*?\\b(" + keyword + ")\\b[^.?!]*[.?!]");
-				
-			while ((inputLine = br.readLine()) != null) {
-				
-				Matcher m = p.matcher(inputLine);
-
-				while (m.find()) {
-					extractedSentences += m.group();
-				}
-			}
+			// get the text
+			String text = DefaultExtractor.INSTANCE.getText(url);
 			
-			br.close();
+			text = separateSentences(text, keywords);
+			return text;
+			
+		} catch (MalformedURLException | BoilerpipeProcessingException ex) {
+			throw new ExtractionException(ex);
 		}
-        catch(Exception e) {
-            e.printStackTrace(); 
-        }
-        return extractedSentences; 
     }
+	
+	private String separateSentences(String text, String[] keywords) {
+		StringBuilder builder = new StringBuilder(text.length());
+			
+		// Build the keywords for the regex
+		String keyword = "";
+		for (int i = 0; i < keywords.length; i++) {
+			if (i != keywords.length - 1)
+				keyword += keywords[i] + '|';
+			else
+				keyword += keywords[i];
+		}
+		// Pattern with a regular expression for sentences containing at least one keyword
+		Pattern p = Pattern.compile("[A-Z](?i)[^.?!]*?\\b(" + keyword + ")\\b[^.?!]*[.?!]");
+	
+		Matcher m = p.matcher(text);
+		// Add each matched sentence on a separate line.
+		while (m.find()) {
+			String sentence = m.group();
+			builder.append(sentence).append('\n');
+		}
+
+		return builder.toString().trim(); // Trim away that last newline
+	}
 }
+
