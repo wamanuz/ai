@@ -1,6 +1,6 @@
+package text;
 
 import java.io.*;
-import java.lang.*;
 import java.util.*;
 
 /**
@@ -20,10 +20,11 @@ import java.util.*;
 public class HeadlineGenerator {
 	/**
 	 * One of:
-	 *   template
-	 *   uchimoto
+	 *   most-likely
+	 *   template (not implemented yet)
+	 *   uchimoto (not implemented ever?)
 	 */
-	private static final String default_algorithm = "uchimoto";
+	private static final String default_algorithm = "most-likely";
 	
 	/**
 	 */
@@ -34,13 +35,15 @@ public class HeadlineGenerator {
 
 	/**
 	 */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 		TextGenerator tg = null;
 		
         // Hashmaps to save algorithms that are implemented
         HashMap<String, TextGenerator> textGenerators = new HashMap<>();
+		textGenerators.put("mext", new MextGenerator());
+		textGenerators.put("most-likely", new MostLikelyGenerator());
 		textGenerators.put("template", new TemplateGenerator());
-        textGenerators.put("uchimoto", new UchimotoGenerator());  // I don't even know if I spelt is name correctly
+        textGenerators.put("uchimoto", new UchimotoGenerator());
 
         String corpus = null;
         int argsi = 0;
@@ -98,94 +101,6 @@ public class HeadlineGenerator {
         String headline = tg.generate(keywords);
         System.out.println(headline);
     }
-}
-
-/**
- */
-abstract class TextGenerator {
-	/**
-	 */
-	protected static final char first_char = '$';
-	/**
-	 */
-	protected static final char last_char = '^';
-	/**
-	 */
-	private static final int word_size = 5;
-	
-	/**
-	 */
-    public TextGenerator() {
-	}
-
-    /**
-     * Adds the corpus file to the generator. Should probably be
-     * overridden if you want to do pre-processing on it.
-    */
-    public abstract void addCorpus(String corpusfile);
-
-    /**
-     * Generates a headline from a given corpus and keywords. Should
-     * be overridden.
-    */
-    public abstract String generate(String[] keywords);
-
-	/**
-	 */
-	private static void countWord(HashMap<String, Integer> counts, final char[] chars) {
-		String key = new String(chars);
-
-		counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
-	}
-	/**
-	 */
-	protected static HashMap<String, Double> buildNWordsTable(final BufferedReader file) throws IOException {
-		int total = 0;
-		
-		final HashMap<String, Integer> counts = new HashMap<String, Integer>();
-		{
-			String line;
-			final char[] chars = new char[word_size];
-			
-			while ((line = file.readLine()) != null) {
-				// skip sentences that are too short
-				if (line.length() < word_size - 2) continue;
-				
-				final String text = line.toUpperCase();
-				// TODO this could be made better
-				if (text.length() == word_size - 2) {
-					chars[0] = first_char;
-					text.getChars(0, word_size - 2, chars, 1);
-					chars[word_size - 1] = last_char;
-					countWord(counts, chars);
-				} else {
-					chars[0] = first_char;
-					text.getChars(0, word_size - 1, chars, 1);
-					countWord(counts, chars);
-					for (int i = 0; i < text.length() - word_size; ++i) {
-						text.getChars(i, i + word_size, chars, 0);
-						countWord(counts, chars);
-					}
-					text.getChars(text.length() - (word_size - 1), text.length(), chars, 0);
-					chars[word_size - 1] = last_char;
-					countWord(counts, chars);
-				}
-			}
-		}
-		final double inv_total = 1. / total;
-		
-		final HashMap<String, Double> table = new HashMap<String, Double>(counts.size());
-		{
-			final Iterator it = counts.entrySet().iterator();
-			
-			while (it.hasNext()) {
-				final Map.Entry pairs = (Map.Entry)it.next();
-				
-				table.put((String)pairs.getKey(), (Double)pairs.getValue() * inv_total);
-			}
-		}
-		return table;
-	}
 }
 
 // class NWordsGenerator extends TextGenerator {
