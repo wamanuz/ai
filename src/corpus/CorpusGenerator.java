@@ -35,7 +35,7 @@ public class CorpusGenerator {
 
         // Hashmaps to save algorithms that are implemented 
         HashMap<String, SearchAlgorithm> searchAlgorithms = new HashMap<>(); 
-        searchAlgorithms.put("bing", new BingSearch()); 
+        //searchAlgorithms.put("bing", new BingSearch()); 
         searchAlgorithms.put("google", new GoogleSearch()); 
 
         HashMap<String, ExtractionAlgorithm> extractionAlgorithms = new HashMap<>(); 
@@ -111,40 +111,6 @@ public class CorpusGenerator {
         // Print the corpus so that the user can direct it to wherever, 
         // instead of forcing them to usie specific files 
         System.out.println(corpus);  
-    }
-}
-
-
-// Rough outline. Feel free to move stuff around and change it. 
-// Everything should be moved to separate files and maybe packages, e.g. .search, .extractions, and .misc?
-
-abstract class SearchAlgorithm {
-    public SearchAlgorithm() {
-
-    }
-    public void doSearch(String[] keywords) {
-        System.out.println("SearchAlgorithm.doSearch"); 
-    }
-}
-
-class GoogleSearch extends SearchAlgorithm {
-    public GoogleSearch() {
-        super(); 
-    }
-
-    public void doSearch(String[] keywords) {
-        System.out.println("google.doSearch"); 
-    }
-}
-
-
-class BingSearch extends SearchAlgorithm {
-    public BingSearch() {
-        super(); 
-    }
-
-    public void doSearch(String[] keyword) {
-        System.out.println("bing.doSearch"); 
     }
 }
 
