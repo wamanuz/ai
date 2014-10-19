@@ -40,6 +40,7 @@ public class HeadlineGenerator {
 		
         // Hashmaps to save algorithms that are implemented
         HashMap<String, TextGenerator> textGenerators = new HashMap<>();
+		textGenerators.put("mext", new MextGenerator());
 		textGenerators.put("most-likely", new MostLikelyGenerator());
 		textGenerators.put("template", new TemplateGenerator());
         textGenerators.put("uchimoto", new UchimotoGenerator());
