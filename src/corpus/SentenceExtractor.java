@@ -17,7 +17,7 @@ public class SentenceExtractor extends ExtractionAlgorithm {
 		String extractedSentences = "";
 		try {
 			// get URL content
-			url = new URL(l.url);
+			url = new URL(l.getURL());
 			URLConnection conn = url.openConnection();
  
 			// open the stream and put it into BufferedReader
@@ -46,6 +46,9 @@ public class SentenceExtractor extends ExtractionAlgorithm {
 			
 			br.close();
 		}
+        catch(Exception e) {
+            e.printStackTrace(); 
+        }
         return extractedSentences; 
     }
 }
