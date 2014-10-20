@@ -39,7 +39,7 @@ public class SentenceExtractor extends ExtractionAlgorithm {
 				keyword += keywords[i];
 		}
 		// Pattern with a regular expression for sentences containing at least one keyword
-		Pattern p = Pattern.compile("[A-Z](?i)[^.?!]*?\\b(" + keyword + ")\\b[^.?!]*[.?!]");
+		Pattern p = Pattern.compile("[A-Z](?i)[^.?!\n]*?\\b(" + keyword + ")\\b[^.?!\n]*[.?!]");
 	
 		Matcher m = p.matcher(text);
 		// Add each matched sentence on a separate line.
