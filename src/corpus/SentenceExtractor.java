@@ -14,7 +14,7 @@ public class SentenceExtractor extends ExtractionAlgorithm {
 		URL url;
 		try {
 			// Create the URL
-			url = new URL(l.url);
+			url = new URL(l.getURL());
  
 			// get the text
 			String text = DefaultExtractor.INSTANCE.getText(url);
