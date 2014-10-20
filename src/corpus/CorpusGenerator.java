@@ -25,7 +25,9 @@ import java.util.HashMap;
  *
  */
 public class CorpusGenerator {
-    public static void main(String[] args) {
+	private static final String default_algorithm = "boilerpipe";
+	
+    public static void main(String[] args) throws ExtractionException {
         String runoptions = "Usage: java CorpusGenerator [-s search_algorithm] [-e text_extraction_algorithm] keywords";
 
         // The default algorithms 
@@ -39,8 +41,9 @@ public class CorpusGenerator {
         searchAlgorithms.put("google", new GoogleSearch()); 
 
         HashMap<String, ExtractionAlgorithm> extractionAlgorithms = new HashMap<>(); 
-        //extractionAlgorithms.put( TODO ALGORITHM NAME HERE, ALGORITHM OBJECT HERE);
-
+        extractionAlgorithms.put("boilerpipe", new BoilerpipeExtractor());
+		
+		ea = extractionAlgorithms.get(default_algorithm);
 
         // Parse the options 
         int argsi = 0; 
@@ -103,10 +106,10 @@ public class CorpusGenerator {
         StringBuilder corpus = new StringBuilder(); 
         int N = 10000; // ? 
 
-        /*while(sa.hasNext() && corpus.length() < N) {
+        while(sa.hasNext() && corpus.length() < N) {
             Link l = sa.next(); 
             corpus.append(ea.extract(l, keywords)); 
-        }*/
+        }
 
         // Print the corpus so that the user can direct it to wherever, 
         // instead of forcing them to usie specific files 
