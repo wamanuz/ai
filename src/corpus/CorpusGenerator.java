@@ -1,5 +1,6 @@
 package corpus;
 
+import java.io.IOException;
 import java.lang.StringBuilder; 
 
 import java.util.Arrays; 
@@ -27,7 +28,7 @@ import java.util.HashMap;
 public class CorpusGenerator {
 	private static final String default_algorithm = "boilerpipe";
 	
-    public static void main(String[] args) throws ExtractionException {
+    public static void main(String[] args) {
         String runoptions = "Usage: java CorpusGenerator [-s search_algorithm] [-e text_extraction_algorithm] keywords";
 
         // The default algorithms 
@@ -42,6 +43,7 @@ public class CorpusGenerator {
 
         HashMap<String, ExtractionAlgorithm> extractionAlgorithms = new HashMap<>(); 
         extractionAlgorithms.put("boilerpipe", new BoilerpipeExtractor());
+        extractionAlgorithms.put("sentence", new SentenceExtractor());
 		
 		ea = extractionAlgorithms.get(default_algorithm);
 
@@ -108,7 +110,15 @@ public class CorpusGenerator {
 
         while(sa.hasNext() && corpus.length() < N) {
             Link l = sa.next(); 
-            corpus.append(ea.extract(l, keywords)); 
+			try {
+				corpus.append(ea.extract(l, keywords));
+			} catch (ExtractionException ex) {
+				if (ex.getCause() instanceof IOException) {
+					System.err.println(ex.getMessage());
+				} else {
+					ex.printStackTrace();
+				}
+			}
         }
 
         // Print the corpus so that the user can direct it to wherever, 
