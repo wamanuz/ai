@@ -1,2 +1,2 @@
 #!/bin/sh
-java -classpath src/text/ HeadlineGenerator $*
+java -cp "src/" text/HeadlineGenerator $*

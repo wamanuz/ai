@@ -14,6 +14,12 @@ class MultiMap<K1, K2, K3, V> {
 	}
 
 	/**
+	 * Pretty bad function.
+	 */
+	public HashMap<K1, HashMap<K2, HashMap<K3, V>>> get() {
+		return table;
+	}
+	/**
 	 */
 	public HashMap<K3, V> get(K1 k1, K2 k2) {
 		HashMap<K2, HashMap<K3, V>> map = table.get(k1);
@@ -158,7 +164,7 @@ class MostLikelyGenerator extends TextGenerator {
 	 * This is a generic function.
 	 */
 	private static MultiMap<String, String, String, Word> buildPosteriorTable(BufferedReader file) throws IOException {
-		int total = 0; // total word count
+		// int total = 0; // total word count
 		
 		final MultiMap<String, String, String, Word> table = new MultiMap<String, String, String, Word>();
 		{
@@ -183,7 +189,7 @@ class MostLikelyGenerator extends TextGenerator {
 						table.put(pprevious, previous, string, word);
 					}
 					++word.count;
-					++total;
+					// ++total;
 					
 					pprevious = previous;
 					previous = string;
@@ -196,21 +202,58 @@ class MostLikelyGenerator extends TextGenerator {
 					table.put(pprevious, previous, null, word);
 				}
 				++word.count;
-				++total;
+				// ++total;
 			}
 		}
 		// if no words were parsed then skip this since we otherwise divide by zero :/
-		if (total == 0) return table;
+		// if (total == 0) return table;
 		
-		final double inv_total = 1. / total;
-		Iterator<Word> it = table.iterator();
+		// final double inv_total = 1. / total;
+		// Iterator<Word> it = table.iterator();
 
-		while (it.hasNext())
+		// while (it.hasNext())
+		// {
+		// 	Word word = it.next();
+
+		// 	word.probability = word.count * inv_total;
+		// }
+
+		HashMap<String, HashMap<String, HashMap<String, Word>>> map1 = table.get();
+		Iterator<String> it1 = map1.keySet().iterator();
+		while (it1.hasNext())
 		{
-			Word word = it.next();
+			String key1 = it1.next();
+			
+			HashMap<String, HashMap<String, Word>> map2 = map1.get(key1);
+			Iterator<String> it2 = map2.keySet().iterator();
+			while (it2.hasNext())
+			{
+				String key2 = it2.next();
 
-			word.probability = word.count * inv_total;
+				int total = 0;
+
+				HashMap<String, Word> map3 = map2.get(key2);
+				Iterator<String> it3 = map3.keySet().iterator();
+				while (it3.hasNext())
+				{
+					String key3 = it3.next();
+					Word word = map3.get(key3);
+
+					total += word.count;
+				}
+				final double inv_total = 1. / total;
+				
+				it3 = map3.keySet().iterator();
+				while (it3.hasNext())
+				{
+					String key3 = it3.next();
+					Word word = map3.get(key3);
+
+					word.probability = word.count * inv_total;
+				}
+			}
 		}
+		// TODO what if it doesn't has next?
 		return table;
 	}
 	
