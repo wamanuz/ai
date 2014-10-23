@@ -97,8 +97,10 @@ public class HeadlineGenerator {
         // some pre-processing.
 
         tg.addCorpus(corpus);
+		System.err.println("Corpus added!");
 
         String headline = tg.generate(keywords);
+		System.err.println("Headline generated!");
         System.out.println(headline);
     }
 }

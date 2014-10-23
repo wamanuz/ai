@@ -164,7 +164,7 @@ class MostLikelyGenerator extends TextGenerator {
 	 * This is a generic function.
 	 */
 	private static MultiMap<String, String, String, Word> buildPosteriorTable(BufferedReader file) throws IOException {
-		// int total = 0; // total word count
+		int total = 0; // total word count
 		
 		final MultiMap<String, String, String, Word> table = new MultiMap<String, String, String, Word>();
 		{
@@ -175,8 +175,9 @@ class MostLikelyGenerator extends TextGenerator {
 				
 				final String[] words = capital_line.split("\\s+"); // split line on whitespace
 
-				// skip sentences with no words
-				if (words.length == 0) continue;
+				// skip sentences with too few words
+				// the 2 is arbitrary
+				if (words.length < 2) continue;
 
 				String pprevious = null;
 				String previous = null;
@@ -189,7 +190,7 @@ class MostLikelyGenerator extends TextGenerator {
 						table.put(pprevious, previous, string, word);
 					}
 					++word.count;
-					// ++total;
+					++total;
 					
 					pprevious = previous;
 					previous = string;
@@ -202,58 +203,60 @@ class MostLikelyGenerator extends TextGenerator {
 					table.put(pprevious, previous, null, word);
 				}
 				++word.count;
-				// ++total;
+				++total;
 			}
 		}
 		// if no words were parsed then skip this since we otherwise divide by zero :/
-		// if (total == 0) return table;
+		if (total == 0) return table;
 		
 		// final double inv_total = 1. / total;
-		// Iterator<Word> it = table.iterator();
+		final double log_total = Math.log(total);
+		Iterator<Word> it = table.iterator();
 
-		// while (it.hasNext())
-		// {
-		// 	Word word = it.next();
-
-		// 	word.probability = word.count * inv_total;
-		// }
-
-		HashMap<String, HashMap<String, HashMap<String, Word>>> map1 = table.get();
-		Iterator<String> it1 = map1.keySet().iterator();
-		while (it1.hasNext())
+		while (it.hasNext())
 		{
-			String key1 = it1.next();
-			
-			HashMap<String, HashMap<String, Word>> map2 = map1.get(key1);
-			Iterator<String> it2 = map2.keySet().iterator();
-			while (it2.hasNext())
-			{
-				String key2 = it2.next();
+			Word word = it.next();
 
-				int total = 0;
-
-				HashMap<String, Word> map3 = map2.get(key2);
-				Iterator<String> it3 = map3.keySet().iterator();
-				while (it3.hasNext())
-				{
-					String key3 = it3.next();
-					Word word = map3.get(key3);
-
-					total += word.count;
-				}
-				final double inv_total = 1. / total;
-				
-				it3 = map3.keySet().iterator();
-				while (it3.hasNext())
-				{
-					String key3 = it3.next();
-					Word word = map3.get(key3);
-
-					word.probability = word.count * inv_total;
-				}
-			}
+			// word.probability = word.count * inv_total;
+			word.probability = Math.log(word.count) - log_total;
 		}
-		// TODO what if it doesn't has next?
+		// this normalizes the probabilities by the number of choices rather than the number of words
+		// when this is applied, unique sentences in the corpus are very likely to be the result
+		// HashMap<String, HashMap<String, HashMap<String, Word>>> map1 = table.get();
+		// Iterator<String> it1 = map1.keySet().iterator();
+		// while (it1.hasNext())
+		// {
+		// 	String key1 = it1.next();
+			
+		// 	HashMap<String, HashMap<String, Word>> map2 = map1.get(key1);
+		// 	Iterator<String> it2 = map2.keySet().iterator();
+		// 	while (it2.hasNext())
+		// 	{
+		// 		String key2 = it2.next();
+
+		// 		int total = 0;
+
+		// 		HashMap<String, Word> map3 = map2.get(key2);
+		// 		Iterator<String> it3 = map3.keySet().iterator();
+		// 		while (it3.hasNext())
+		// 		{
+		// 			String key3 = it3.next();
+		// 			Word word = map3.get(key3);
+
+		// 			total += word.count;
+		// 		}
+		// 		final double inv_total = 1. / total;
+				
+		// 		it3 = map3.keySet().iterator();
+		// 		while (it3.hasNext())
+		// 		{
+		// 			String key3 = it3.next();
+		// 			Word word = map3.get(key3);
+
+		// 			word.probability = word.count * inv_total;
+		// 		}
+		// 	}
+		// }
 		return table;
 	}
 	
@@ -285,57 +288,109 @@ class MostLikelyGenerator extends TextGenerator {
 		}
     }
 
+	private static double length_probability(int t) {
+		//  0:    1
+		//  1:    2
+		//  2:    4
+		//  3:    8
+		//  4:   16
+		//  5:   32
+		//  6:   64
+		//  7:  128
+		//  8:  256
+		//  9:  512
+		// 10: 1024
+		// sum 2047
+		final int best_length = 10; // > 0
+		final int minimum_length = 0;
+		
+		final int sum = (1 << (best_length + 1)) - 1;
+		final double scale = Math.log((double)sum);
+
+		if (t < minimum_length) return Math.log(0.);
+		if (t > 2 * best_length) return Math.log(1.) - scale;
+
+		final int shift = t <= best_length ? t : 2 * best_length - t;
+		
+		return Math.log((double)(1 << shift)) - scale;
+	}
+
     public String generate(String[] keywords) {
 		if (table == null) return null;
 
-		ArrayList<HashMap<String, Choice>> steps = new ArrayList<HashMap<String, Choice>>();
-		
-		Choice init_choice = new Choice(null, 1, null);
-
-		double highest_continuation_probability = 0.;
+		final String[] capital_keywords = new String[keywords.length];
 		{
-			HashMap<String, Choice> choices = new HashMap<String, Choice>();
-			
-			// get possible continuations
-			HashMap<String, Word> words = table.get(null, init_choice.word);
-			
-			Iterator<String> it = words.keySet().iterator();
-			
-			while (it.hasNext())
+			for (int i = 0; i < keywords.length; ++i)
 			{
-				String key = it.next();
-				Word word = words.get(key);
-				
-				Choice choice = new Choice(init_choice, word.probability, key);
-				choices.put(key, choice);
-
-				if (word.probability > highest_continuation_probability)
-				{
-					highest_continuation_probability = word.probability;
-				}
+				capital_keywords[i] = keywords[i].toUpperCase();
 			}
-			steps.add(choices);
 		}
-		double highest_probability = 0.;
+		final ArrayList<HashMap<String, Choice>> steps = new ArrayList<HashMap<String, Choice>>();
+		{
+			// final Choice init_choice = new Choice(null, 1, null);
+			final Choice first_choice = new Choice(null, Math.log(1.), null);
+			final Choice second_choice = new Choice(first_choice, Math.log(1.), null);
+			
+			final HashMap<String, Choice> first_choices = new HashMap<String, Choice>();
+			first_choices.put(null, first_choice);
+			final HashMap<String, Choice> second_choices = new HashMap<String, Choice>();
+			second_choices.put(null, second_choice);
+
+			steps.add(first_choices);
+			steps.add(second_choices);
+		}
+
+		// // double highest_continuation_probability = 0.;
+		// double highest_continuation_probability = Math.log(0.);
+		// {
+		// 	final HashMap<String, Choice> choices = new HashMap<String, Choice>();
+
+		// 	// get possible continuations
+		// 	final HashMap<String, Word> words = table.get(null, init_choice.word);
+
+		// 	final Iterator<String> it = words.keySet().iterator();
+
+		// 	while (it.hasNext())
+		// 	{
+		// 		final String key = it.next();
+		// 		final Word word = words.get(key);
+
+		// 		final double probability = word.probability;
+				
+		// 		final Choice choice = new Choice(init_choice, probability, key);
+		// 		choices.put(key, choice);
+
+		// 		if (probability > highest_continuation_probability)
+		// 		{
+		// 			highest_continuation_probability = probability;
+		// 		}
+		// 	}
+		// 	steps.add(choices);
+		// }
+		// double highest_probability = 0.;
+		double highest_continuation_probability;
+		double highest_probability = Math.log(0.);
 		Choice most_likely_outcome = null;
 
 		// for as long as there might be a continuation that is better than the current best complete sentence...
-		while (highest_continuation_probability > highest_probability)
+		// while (highest_continuation_probability > highest_probability)
+		do
 		{
-			highest_continuation_probability = 0.;
+			// highest_continuation_probability = 0.;
+			highest_continuation_probability = Math.log(0.);
 			
-			HashMap<String, Choice> previous_choices = steps.get(steps.size() - 1);
-			HashMap<String, Choice> choices = new HashMap<String, Choice>();
+			final HashMap<String, Choice> previous_choices = steps.get(steps.size() - 1);
+			final HashMap<String, Choice> choices = new HashMap<String, Choice>();
 
-			Iterator<String> previous_it = previous_choices.keySet().iterator();
+			final Iterator<String> previous_it = previous_choices.keySet().iterator();
 
 			while (previous_it.hasNext())
 			{
-				String previous_key = previous_it.next();
-				Choice previous_choice = previous_choices.get(previous_key);
+				final String previous_key = previous_it.next();
+				final Choice previous_choice = previous_choices.get(previous_key);
 
 				// get possible continuations
-				HashMap<String, Word> words = table.get(previous_choice.parent.word, previous_key); // or '..., previous_choice.word);'
+				final HashMap<String, Word> words = table.get(previous_choice.parent.word, previous_key); // or '..., previous_choice.word);'
 
 				// dont do anything if there is no continuation
 				//
@@ -343,14 +398,15 @@ class MostLikelyGenerator extends TextGenerator {
 				// sentence but there is a potentially better one
 				if (words == null) continue;
 
-				Iterator<String> it = words.keySet().iterator();
+				final Iterator<String> it = words.keySet().iterator();
 				
 				while (it.hasNext())
 				{
-					String key = it.next();
-					Word word = words.get(key);
+					final String key = it.next();
+					final Word word = words.get(key);
 
-					double probability = previous_choice.probability * word.probability;
+					// final double probability = previous_choice.probability * word.probability;
+					final double probability = previous_choice.probability + word.probability;
 					
 					Choice choice = choices.get(key);
 					if (choice == null)
@@ -364,9 +420,12 @@ class MostLikelyGenerator extends TextGenerator {
 						}
 						if (key == null) // last word of a sentence
 						{
-							if (probability > highest_probability)
+							final double sentence_probability = probability + length_probability(steps.size() - 2);
+							// if (probability > highest_probability)
+							if (sentence_probability > highest_probability)
 							{
-								highest_probability = probability;
+								// highest_probability = probability;
+								highest_probability = sentence_probability;
 								most_likely_outcome = choice;
 							}
 						}
@@ -385,9 +444,12 @@ class MostLikelyGenerator extends TextGenerator {
 							}
 							if (key == null) // last word of a sentence
 							{
-								if (probability > highest_probability)
+								final double sentence_probability = probability + length_probability(steps.size() - 2);
+								// if (probability > highest_probability)
+								if (sentence_probability > highest_probability)
 								{
-									highest_probability = probability;
+									// highest_probability = probability;
+									highest_probability = sentence_probability;
 									most_likely_outcome = choice;
 								}
 							}
@@ -395,15 +457,19 @@ class MostLikelyGenerator extends TextGenerator {
 					}
 				}
 			}
+			// if (choices.isEmpty()) break;
+			
 			steps.add(choices);
 		}
+		while (highest_continuation_probability > highest_probability);
 		// in case there is no most likely outcome...
 		if (most_likely_outcome == null) return null;
 
 		Choice choice = most_likely_outcome.parent;
 		String sentence = "";
 
-		while (choice.parent != null)
+		// while (choice.parent != null)
+		while (choice.word != null)
 		{
 			sentence = choice.word + " " + sentence;
 
