@@ -22,6 +22,7 @@ public class BoilerpipeExtractor extends ExtractionAlgorithm {
 	}
 
 	private String separateSentences(String text) {
+		String [] charToRemove = {"/", "\"", "(", ")", "'"};
 		StringBuilder builder = new StringBuilder(text.length());
 
 		Pattern pattern;
@@ -34,6 +35,19 @@ public class BoilerpipeExtractor extends ExtractionAlgorithm {
 		// Add each matched sentence on a separate line.
 		while (matcher.find()) {
 			String sentence = matcher.group();
+			
+			// Replacing unwanted characters by whitespaces
+			for (String s : charToRemove){
+				sentence = sentence.replace(s, " ");
+			}
+			
+			// Remove square brackets and their content
+			Pattern bracketPattern = Pattern.compile("\\[([^\\]]*)\\]");
+			Matcher bracketMatcher = bracketPattern.matcher(sentence);
+			while (bracketMatcher.find()){
+				sentence = bracketMatcher.replaceAll("");
+				bracketMatcher = bracketPattern.matcher(sentence);
+			}
 			builder.append(sentence).append('\n');
 		}
 
