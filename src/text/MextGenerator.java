@@ -63,6 +63,7 @@ public class MextGenerator extends TextGenerator {
 	private final Map<List<String>, Map<String, Integer>> weightMatrix;
 	private static final int N = 2;
 	private static final int MAX_WORDS = 20;
+	private static final int TIMELIMIT = 30000;
 
 	public MextGenerator() {
 		weightMatrix = new HashMap<>();
@@ -73,15 +74,21 @@ public class MextGenerator extends TextGenerator {
 		InputStream in = new FileInputStream(corpusfile);
 		Iterator<String> tokenIter = createTokenIterator(in);
 
+		boolean ready = true;
 		LinkedList<String> ngram = new LinkedList<>();
 		for (Iterator<String> it = tokenIter; it.hasNext();) {
 			String token = it.next();
-
-			if (token.equals(String.valueOf(TextGenerator.first_char))) {
+			if (token.isEmpty()) {
+				continue;
+			}
+			if (ready && token.equals(String.valueOf(TextGenerator.first_char))) {
 				ngram.clear();
 				for (int i = 0; i < N; i++) {
 					ngram.addLast(null);
 				}
+				ready = false;
+			} else if (token.equals(String.valueOf(TextGenerator.last_char))) {
+				ready = true;
 			}
 
 			//System.out.println(token);
@@ -93,6 +100,8 @@ public class MextGenerator extends TextGenerator {
 
 	@Override
 	public String generate(String[] keywords) {
+		long timeStop = System.currentTimeMillis() + TIMELIMIT;
+
 		LinkedList<String> context = new LinkedList<>();
 		for (int i = 0; i < N; i++) {
 			context.addLast(null);
@@ -106,7 +115,7 @@ public class MextGenerator extends TextGenerator {
 		looseEnds.add(start);
 
 		int maxScore = 0;
-		while (!looseEnds.isEmpty()) {
+		while (!looseEnds.isEmpty() && System.currentTimeMillis() < timeStop) {
 			// Continue with the highest scored unfinished sequence
 			SequenceState state = looseEnds.poll();
 
@@ -166,8 +175,8 @@ public class MextGenerator extends TextGenerator {
 		if (topSentence == null) {
 			return null; // nothing :(
 		}
-		// Filter sentence from unknown characters
-		topSentence = topSentence.replaceAll("[^\\w\\d', ]", "").trim();
+		// Filter sentence from start and stop tokens
+		topSentence = topSentence.replaceAll("^\\$ *| *\\^$", "");
 		return topSentence;
 	}
 
