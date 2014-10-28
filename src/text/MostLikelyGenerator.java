@@ -138,11 +138,13 @@ class MostLikelyGenerator extends TextGenerator {
 		public Choice parent;
 		public double probability; // best probability so far
 		public String word; // actual word
+		public int checkpoint;
 
-		public Choice(Choice parent, double probability, String word) {
+		public Choice(final Choice parent, final double probability, final String word, final int checkpoint) {
 			this.parent = parent;
 			this.probability = probability;
 			this.word = word;
+			this.checkpoint = checkpoint;
 		}
 	}
 	/**
@@ -220,43 +222,6 @@ class MostLikelyGenerator extends TextGenerator {
 			// word.probability = word.count * inv_total;
 			word.probability = Math.log(word.count) - log_total;
 		}
-		// this normalizes the probabilities by the number of choices rather than the number of words
-		// when this is applied, unique sentences in the corpus are very likely to be the result
-		// HashMap<String, HashMap<String, HashMap<String, Word>>> map1 = table.get();
-		// Iterator<String> it1 = map1.keySet().iterator();
-		// while (it1.hasNext())
-		// {
-		// 	String key1 = it1.next();
-			
-		// 	HashMap<String, HashMap<String, Word>> map2 = map1.get(key1);
-		// 	Iterator<String> it2 = map2.keySet().iterator();
-		// 	while (it2.hasNext())
-		// 	{
-		// 		String key2 = it2.next();
-
-		// 		int total = 0;
-
-		// 		HashMap<String, Word> map3 = map2.get(key2);
-		// 		Iterator<String> it3 = map3.keySet().iterator();
-		// 		while (it3.hasNext())
-		// 		{
-		// 			String key3 = it3.next();
-		// 			Word word = map3.get(key3);
-
-		// 			total += word.count;
-		// 		}
-		// 		final double inv_total = 1. / total;
-				
-		// 		it3 = map3.keySet().iterator();
-		// 		while (it3.hasNext())
-		// 		{
-		// 			String key3 = it3.next();
-		// 			Word word = map3.get(key3);
-
-		// 			word.probability = word.count * inv_total;
-		// 		}
-		// 	}
-		// }
 		return table;
 	}
 	
@@ -288,193 +253,112 @@ class MostLikelyGenerator extends TextGenerator {
 		}
     }
 
-	private static double length_probability(int t) {
-		//  0:    1
-		//  1:    2
-		//  2:    4
-		//  3:    8
-		//  4:   16
-		//  5:   32
-		//  6:   64
-		//  7:  128
-		//  8:  256
-		//  9:  512
-		// 10: 1024
-		// sum 2047
-		final int best_length = 10; // > 0
-		final int minimum_length = 0;
-		
-		final int sum = (1 << (best_length + 1)) - 1;
-		final double scale = Math.log((double)sum);
-
-		if (t < minimum_length) return Math.log(0.);
-		if (t > 2 * best_length) return Math.log(1.) - scale;
-
-		final int shift = t <= best_length ? t : 2 * best_length - t;
-		
-		return Math.log((double)(1 << shift)) - scale;
-	}
-
-    public String generate(String[] keywords) {
-		if (table == null) return null;
-
-		final String[] capital_keywords = new String[keywords.length];
-		{
-			for (int i = 0; i < keywords.length; ++i)
-			{
-				capital_keywords[i] = keywords[i].toUpperCase();
-			}
-		}
-		final ArrayList<HashMap<String, Choice>> steps = new ArrayList<HashMap<String, Choice>>();
-		{
-			// final Choice init_choice = new Choice(null, 1, null);
-			final Choice first_choice = new Choice(null, Math.log(1.), null);
-			final Choice second_choice = new Choice(first_choice, Math.log(1.), null);
-			
-			final HashMap<String, Choice> first_choices = new HashMap<String, Choice>();
-			first_choices.put(null, first_choice);
-			final HashMap<String, Choice> second_choices = new HashMap<String, Choice>();
-			second_choices.put(null, second_choice);
-
-			steps.add(first_choices);
-			steps.add(second_choices);
-		}
-
-		// // double highest_continuation_probability = 0.;
-		// double highest_continuation_probability = Math.log(0.);
-		// {
-		// 	final HashMap<String, Choice> choices = new HashMap<String, Choice>();
-
-		// 	// get possible continuations
-		// 	final HashMap<String, Word> words = table.get(null, init_choice.word);
-
-		// 	final Iterator<String> it = words.keySet().iterator();
-
-		// 	while (it.hasNext())
-		// 	{
-		// 		final String key = it.next();
-		// 		final Word word = words.get(key);
-
-		// 		final double probability = word.probability;
-				
-		// 		final Choice choice = new Choice(init_choice, probability, key);
-		// 		choices.put(key, choice);
-
-		// 		if (probability > highest_continuation_probability)
-		// 		{
-		// 			highest_continuation_probability = probability;
-		// 		}
-		// 	}
-		// 	steps.add(choices);
-		// }
-		// double highest_probability = 0.;
-		double highest_continuation_probability;
-		double highest_probability = Math.log(0.);
-		Choice most_likely_outcome = null;
-
-		// for as long as there might be a continuation that is better than the current best complete sentence...
-		// while (highest_continuation_probability > highest_probability)
-		do
-		{
-			// highest_continuation_probability = 0.;
-			highest_continuation_probability = Math.log(0.);
-			
-			final HashMap<String, Choice> previous_choices = steps.get(steps.size() - 1);
-			final HashMap<String, Choice> choices = new HashMap<String, Choice>();
-
-			final Iterator<String> previous_it = previous_choices.keySet().iterator();
-
-			while (previous_it.hasNext())
-			{
-				final String previous_key = previous_it.next();
-				final Choice previous_choice = previous_choices.get(previous_key);
-
-				// get possible continuations
-				final HashMap<String, Word> words = table.get(previous_choice.parent.word, previous_key); // or '..., previous_choice.word);'
-
-				// dont do anything if there is no continuation
-				//
-				// this could be the case when we have reached a complete
-				// sentence but there is a potentially better one
-				if (words == null) continue;
-
-				final Iterator<String> it = words.keySet().iterator();
-				
-				while (it.hasNext())
+	private String find_sentence(final String[] checkpoints) {
+		final PriorityQueue<Choice> queue = new PriorityQueue<Choice>(100, new Comparator<Choice>() {
+				@Override
+				public int compare(final Choice a, final Choice b)
 				{
-					final String key = it.next();
-					final Word word = words.get(key);
+					// bigger choice is returned as smaller so as to get an decreasing list
+					if (a.probability < b.probability) return  1;
+					if (a.probability > b.probability) return -1;
+					return 0;
+				}
+			});
+		final Choice first_choice = new Choice(null, Math.log(1.), null, 0);
+		final Choice second_choice = new Choice(first_choice, Math.log(1.), null, 0);
 
-					// final double probability = previous_choice.probability * word.probability;
-					final double probability = previous_choice.probability + word.probability;
-					
-					Choice choice = choices.get(key);
-					if (choice == null)
-					{
-						choice = new Choice(previous_choice, probability, key);
-						choices.put(key, choice);
+		queue.add(second_choice);
 
-						if (probability > highest_continuation_probability)
-						{
-							highest_continuation_probability = probability;
-						}
-						if (key == null) // last word of a sentence
-						{
-							final double sentence_probability = probability + length_probability(steps.size() - 2);
-							// if (probability > highest_probability)
-							if (sentence_probability > highest_probability)
-							{
-								// highest_probability = probability;
-								highest_probability = sentence_probability;
-								most_likely_outcome = choice;
-							}
-						}
-					}
-					else
-					{
-						if (probability > choice.probability)
-						{
-							choice.parent = previous_choice;
-							choice.probability = probability;
-							choice.word = key;
-							
-							if (probability > highest_continuation_probability)
-							{
-								highest_continuation_probability = probability;
-							}
-							if (key == null) // last word of a sentence
-							{
-								final double sentence_probability = probability + length_probability(steps.size() - 2);
-								// if (probability > highest_probability)
-								if (sentence_probability > highest_probability)
-								{
-									// highest_probability = probability;
-									highest_probability = sentence_probability;
-									most_likely_outcome = choice;
-								}
-							}
-						}
-					}
+		Choice outcome = null;
+
+		// THIS LIMITS THE NUMBER OF ITERATIONS
+		// THE MORE ITERATIONS THE MORE LIKELY IT IS TO FIND A SENTENCE
+		final int max_reps = 500000;
+		int reps = 0;
+
+		while (queue.size() > 0 &&
+			   outcome == null &&
+			   ++reps < max_reps)
+		{
+			final Choice previous_choice = queue.poll();
+			
+			// get possible continuations
+			final HashMap<String, Word> continuations = table.get(previous_choice.parent.word, previous_choice.word); // or '..., previous_choice.word);'
+
+			if (continuations == null)
+			{
+				// System.err.println("err: no continuations!");
+				
+				continue;
+			}
+			final Iterator<String> it = continuations.keySet().iterator();
+				
+			while (it.hasNext())
+			{
+				final String key = it.next();
+				final Word word = continuations.get(key);
+
+				// log space
+				final double probability = previous_choice.probability + word.probability;
+				
+				Choice choice = new Choice(previous_choice, probability, key, previous_choice.checkpoint);
+				
+				// if (key == null ? key == checkpoints[previous_choice.checkpoint] : key.equals(checkpoints[previous_choice.checkpoint]))
+				if (key == null || checkpoints[previous_choice.checkpoint] == null ? key == checkpoints[previous_choice.checkpoint] : key.contains(checkpoints[previous_choice.checkpoint]))
+				{
+					// bump it to the next checkpoint
+					++choice.checkpoint;
+				}
+				// got all checkpoints yet?
+				if (choice.checkpoint == checkpoints.length)
+				{
+					outcome = choice;
+				}
+				else
+				{
+					queue.add(choice);
 				}
 			}
-			// if (choices.isEmpty()) break;
-			
-			steps.add(choices);
 		}
-		while (highest_continuation_probability > highest_probability);
-		// in case there is no most likely outcome...
-		if (most_likely_outcome == null) return null;
+		// debug prints
+		System.err.print("dgb: ");
+		System.err.print(reps);
+		System.err.println(" reps!");
 
-		Choice choice = most_likely_outcome.parent;
+		// in case there is no most likely outcome...
+		if (outcome == null)
+		{
+			System.err.println("err: didn't find any likely outcome!");
+			
+			return null;
+		}
+
+		Choice choice = outcome.parent;
 		String sentence = "";
 
-		// while (choice.parent != null)
-		while (choice.word != null)
+		while (choice != second_choice)
 		{
 			sentence = choice.word + " " + sentence;
 
 			choice = choice.parent;
 		}
+		return sentence;
+	}
+
+    public String generate(String[] in_keywords) {
+		if (table == null) return null;
+
+		final String[] keywords = new String[in_keywords.length + 1];
+		{
+			for (int i = 0; i < in_keywords.length; ++i)
+			{
+				keywords[i] = in_keywords[i].toUpperCase();
+			}
+			keywords[in_keywords.length] = null;
+		}
+
+		String sentence = find_sentence(keywords);
+
 		return sentence;
     }
 }
