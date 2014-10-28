@@ -62,7 +62,8 @@ public class MextGenerator extends TextGenerator {
 
 	private final Map<List<String>, Map<String, Integer>> weightMatrix;
 	private static final int N = 2;
-	private static final int MAX_WORDS = 20;
+	private static final int MAX_WORDS = 10;
+	private static final double LOWEST_PROB = 0.01;
 	private static final int TIMELIMIT = 30000;
 
 	public MextGenerator() {
@@ -144,7 +145,7 @@ public class MextGenerator extends TextGenerator {
 				SequenceState nextState = new SequenceState(state, nextWord, newContext, state.length + 1, estimatedScore, state.prob * prob);
 				if (!String.valueOf(last_char).equals(nextWord)) {
 					// Queue if not too unlikely or too long
-					if (nextState.prob > 0.1 && nextState.length < MAX_WORDS) {
+					if (nextState.prob > LOWEST_PROB && nextState.length < MAX_WORDS) {
 						looseEnds.add(nextState);
 					}
 				} else {
