@@ -253,7 +253,19 @@ class MostLikelyGenerator extends TextGenerator {
 		}
     }
 
-	private String find_sentence(final String[] checkpoints) {
+	private class Sentence
+	{
+		public String string;
+		public double probability;
+
+		Sentence(final String string, final double probability) {
+			this.string = string;
+			this.probability = probability;
+		}
+	}
+
+	// private String find_sentence(final String[] checkpoints) {
+	private Sentence find_sentence(final String[] checkpoints, final double at_least_this_probable) {
 		final PriorityQueue<Choice> queue = new PriorityQueue<Choice>(100, new Comparator<Choice>() {
 				@Override
 				public int compare(final Choice a, final Choice b)
@@ -273,7 +285,7 @@ class MostLikelyGenerator extends TextGenerator {
 
 		// THIS LIMITS THE NUMBER OF ITERATIONS
 		// THE MORE ITERATIONS THE MORE LIKELY IT IS TO FIND A SENTENCE
-		final int max_reps = 500000;
+		final int max_reps = 300000;
 		int reps = 0;
 
 		while (queue.size() > 0 &&
@@ -281,6 +293,8 @@ class MostLikelyGenerator extends TextGenerator {
 			   ++reps < max_reps)
 		{
 			final Choice previous_choice = queue.poll();
+
+			//if (previous_choice.probability < at_least_this_probable) break;
 			
 			// get possible continuations
 			final HashMap<String, Word> continuations = table.get(previous_choice.parent.word, previous_choice.word); // or '..., previous_choice.word);'
@@ -321,16 +335,16 @@ class MostLikelyGenerator extends TextGenerator {
 			}
 		}
 		// debug prints
-		System.err.print("dgb: ");
-		System.err.print(reps);
-		System.err.println(" reps!");
+		// System.err.print("dbg: ");
+		// System.err.print(reps);
+		// System.err.println(" reps!");
 
 		// in case there is no most likely outcome...
 		if (outcome == null)
 		{
-			System.err.println("err: didn't find any likely outcome!");
+			// System.err.println("err: didn't find any likely outcome!");
 			
-			return null;
+			return new Sentence(null, Math.log(0.));
 		}
 
 		Choice choice = outcome.parent;
@@ -342,23 +356,112 @@ class MostLikelyGenerator extends TextGenerator {
 
 			choice = choice.parent;
 		}
-		return sentence;
+		return new Sentence(sentence, outcome.probability);
+	}
+
+	private void swap(final int[] indices, final int i, final int j) {
+		final int tmp = indices[i];
+		indices[i] = indices[j];
+		indices[j] = tmp;
+	}
+	private void permute(final int[] indices, final int k, final ArrayList<int[]> permutations) {
+		for (int i = k; i < indices.length; ++i)
+		{
+			swap(indices, i, k);
+			// is it a null place?
+			// do we have enough keywords?
+			// if (indices[k] == -1 && k >= indices.length - 1)
+			if (indices[k] == -1 && (indices.length - 1 == 1 ? k >= 1 : k >= 2))
+			{
+				final int[] permutation = new int[k];
+				System.arraycopy(indices, 0, permutation, 0, k);
+				permutations.add(permutation);
+			}
+			permute(indices, k + 1, permutations);
+			swap(indices, k, i);
+		}
+	}
+	private String[][] permute(final String[] items) {
+		final ArrayList<int[]> permutations = new ArrayList<int[]>();
+		{
+			final int[] indices = new int[items.length + 1];
+			{
+				for (int i = 0; i < items.length + 1; ++i)
+				{
+					indices[i] = i - 1;
+				}
+			}
+			permute(indices, 0, permutations);
+		}
+		String[][] ps = new String[permutations.size()][];
+		{
+			for (int pi = 0; pi < permutations.size(); ++pi)
+			{
+				final int[] permutation = permutations.get(pi);
+
+				ps[pi] = new String[permutation.length + 1];
+				{
+					for (int i = 0; i < permutation.length; ++i)
+					{
+						ps[pi][i] = permutation[i] != -1 ? items[permutation[i]] : "-";
+					}
+					ps[pi][permutation.length] = null;
+				}
+			}
+		}
+		return ps;
 	}
 
     public String generate(String[] in_keywords) {
 		if (table == null) return null;
 
-		final String[] keywords = new String[in_keywords.length + 1];
+		final String[] keywords = new String[in_keywords.length];
 		{
 			for (int i = 0; i < in_keywords.length; ++i)
 			{
 				keywords[i] = in_keywords[i].toUpperCase();
 			}
-			keywords[in_keywords.length] = null;
 		}
+		final String[][] permutations = permute(keywords);
 
-		String sentence = find_sentence(keywords);
+		Sentence best_sentence = new Sentence(null, Math.log(0.));
 
-		return sentence;
+		for (final String[] checkpoints : permutations)
+		{
+			// System.err.print("dbg: trying '");
+			// for (final String str : checkpoints)
+			// {
+			// 	System.err.print(str);
+			// 	System.err.print(" ");
+			// }
+			// System.err.println("'");
+			final Sentence sentence = find_sentence(checkpoints, best_sentence.probability);
+
+			System.err.print("dbg: ");
+			System.err.println(sentence.string);
+
+			if (sentence.probability > best_sentence.probability)
+			{
+				best_sentence = sentence;
+			}
+		}
+		System.err.print("dbg: best probability is ");
+		System.err.print(Math.exp(best_sentence.probability));
+		System.err.print(" ( = ");
+		System.err.print(best_sentence.probability);
+		System.err.println(" in log space)");
+		return best_sentence.string;
+		// final String[] keywords = new String[in_keywords.length + 1];
+		// {
+		// 	for (int i = 0; i < in_keywords.length; ++i)
+		// 	{
+		// 		keywords[i] = in_keywords[i].toUpperCase();
+		// 	}
+		// 	keywords[in_keywords.length] = null;
+		// }
+
+		// String sentence = find_sentence(keywords);
+
+		// return sentence;
     }
 }
