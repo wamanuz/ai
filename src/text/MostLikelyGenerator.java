@@ -285,7 +285,7 @@ class MostLikelyGenerator extends TextGenerator {
 
 		// THIS LIMITS THE NUMBER OF ITERATIONS
 		// THE MORE ITERATIONS THE MORE LIKELY IT IS TO FIND A SENTENCE
-		final int max_reps = 300000;
+		final int max_reps = 2000000; // 2000000 is very large
 		int reps = 0;
 
 		while (queue.size() > 0 &&
@@ -370,8 +370,9 @@ class MostLikelyGenerator extends TextGenerator {
 			swap(indices, i, k);
 			// is it a null place?
 			// do we have enough keywords?
+			if (indices[k] == -1 && k != 0)
 			// if (indices[k] == -1 && k >= indices.length - 1)
-			if (indices[k] == -1 && (indices.length - 1 == 1 ? k >= 1 : k >= 2))
+			// if (indices[k] == -1 && (indices.length - 1 == 1 ? k >= 1 : k >= 2))
 			{
 				final int[] permutation = new int[k];
 				System.arraycopy(indices, 0, permutation, 0, k);
