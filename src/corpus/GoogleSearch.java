@@ -25,9 +25,9 @@ public class GoogleSearch extends SearchAlgorithm {
                           "key=" + KEY + 
                           "&cx=" + CX; 
 
-    private static final int NUM = 10;  // The number of results that is returned, [0, 10] 
-    private static final int LIMIT = 3; // Defines the maximum amount of searches 
-    private int start = 1;              // The index of the first result to return 
+    private static final int NUM = 10;   // The number of results that is returned, [0, 10] 
+    private static final int LIMIT = 10; // Defines the maximum amount of searches 
+    private int start = 1;               // The index of the first result to return 
 
 
     private String[] keywords;          // The keywords to search 

@@ -23,7 +23,7 @@ public class HeadlineTest {
 			"Interstellar"
 		};
 
-		Map<String, Map<String, String>> result = new HashMap<>();
+		Map<String, Map<String, String>> result = new LinkedHashMap<>();
 		for (String keywordsStr : keywords) {
 			Map<String, TextGenerator> tgs = createTextGenerators();
 			Map<String, String> headlines = getHeadlines(keywordsStr, tgs, "sentence");

@@ -1,10 +1,13 @@
 package corpus;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.StringBuilder; 
+import java.io.OutputStream;
 
 import java.util.Arrays; 
 import java.util.HashMap; 
+import java.util.Map;
 
 
 /** 
@@ -105,26 +108,65 @@ public class CorpusGenerator {
         // the SA-object determine when it needs to query for more results.
 
         sa.doSearch(keywords); 
-        StringBuilder corpus = new StringBuilder(); 
-        int N = 10000; // ? 
+        int N = 1000000; // ? 
 
-        while(sa.hasNext() && corpus.length() < N) {
-            Link l = sa.next(); 
-			try {
-				corpus.append(ea.extract(l, keywords));
-			} catch (ExtractionException ex) {
-				if (ex.getCause() instanceof IOException) {
-					System.err.println(ex.getMessage());
-				} else {
+		Map<String, OutputStream> files = new HashMap<>();
+		Map<String, Integer> lengths = new HashMap<>();
+
+		String keywordsStr = "";
+		for (String keyword : keywords) {
+			keywordsStr += "_" + keyword;
+		}
+
+		try {
+			for (String key : extractionAlgorithms.keySet()) {
+				OutputStream out = new FileOutputStream(key + keywordsStr + ".corpus");
+				files.put(key, out);
+				lengths.put(key, 0);
+			}
+
+			int corpusLength = 0;
+			while (sa.hasNext() && corpusLength < N) {
+				Link l = sa.next();
+
+				System.out.println(l.getURL());
+
+				for (String key : extractionAlgorithms.keySet()) {
+					ExtractionAlgorithm extractor = extractionAlgorithms.get(key);
+					OutputStream out = files.get(key);
+					try {
+						String extracted = extractor.extract(l, keywords);
+						lengths.put(key, lengths.get(key) + extracted.length());
+
+						out.write(extracted.getBytes());
+						out.write(10);
+					} catch (IOException | ExtractionException ex) {
+						System.err.println(ex.getMessage());
+					} catch (RuntimeException | Error ex) {
+						// Catches unknown exceptions and errors like 
+						// IllegalArgumentException and StackOverflowError etc.
+						System.err.println("Unknown error");
+						System.err.println(l.getURL());
+						ex.printStackTrace();
+					}
+				}
+				corpusLength = Integer.MAX_VALUE;
+				for (String key : extractionAlgorithms.keySet()) {
+					corpusLength = Math.min(corpusLength, lengths.get(key));
+				}
+			}
+		} catch (FileNotFoundException ex) {
+			ex.printStackTrace();
+		} finally {
+			for (OutputStream out  : files.values()) {
+				try {
+					out.close();
+				} catch (IOException ex) {
 					ex.printStackTrace();
 				}
 			}
-        }
-
-        // Print the corpus so that the user can direct it to wherever, 
-        // instead of forcing them to usie specific files 
-        System.out.println(corpus);  
-    }
+		}
+	}
 }
 
 
