@@ -1,0 +1,6 @@
+This is a small program we wrote to convert corpuses from http://corpora.informatik.uni-leipzig.de/download.html into a format that we preferred.
+
+Compile with make.
+
+Example usage:
+  ./sentences2corpus eng_news_2005_10K-sentences.txt ../res/generic.corpus
